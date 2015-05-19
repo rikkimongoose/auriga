@@ -94,7 +94,7 @@ class TCPHandle(SocketServer.BaseRequestHandler):
 class ThreadedTCPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
     pass
 
-def main():    #define argument options
+def main():
     parser = argparse.ArgumentParser(usage='%(prog)s [options]')
     parser.add_argument('-V', '--version', action='version', version='auriga %s' % VER)
     parser.add_argument('-s', '--server', type=str, default="localhost", help='host to attach')
