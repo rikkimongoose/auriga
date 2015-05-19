@@ -11,6 +11,11 @@ PARAM_EMPTY        = 0x7FFF #=32767
 PARAM_EMPTY_SIGNAL = 0x2    #=b10
 PARAM_EMPTY_STR    = ''
 
+PARSE_STAT_TIED             = 0x1
+PARSE_STAT_DECOMMUNICATED   = 0x2
+PARSE_STAT_PHYSICAL         = 0x4
+PARSE_STAT_COMPRESSED       = 0x64
+
 PARAM_TYPE_ERROR            =-1
 PARAM_TYPE_SIGNAL           = 0
 PARAM_TYPE_FUNCTION         = 1
@@ -371,13 +376,13 @@ class UsiDataLoader:
 
     def _parse_stat(self, stat):
         stat_dict = {
-            "tied" : 0x1,
-            "decommunicated" : 0x2,
-            "physical" : 0x4,
+            "tied" : PARSE_STAT_TIED,
+            "decommunicated" : PARSE_STAT_DECOMMUNICATED,
+            "physical" : PARSE_STAT_PHYSICAL,
             #"RESERVED" : 0x8,
             #"RESERVED" : 0x16,
             #"RESERVED" : 0x32,
-            "compressed" : 0x64
+            "compressed" : PARSE_STAT_COMPRESSED
         }
         return [code for code in stat_dict if stat_dict[code] & stat]
 

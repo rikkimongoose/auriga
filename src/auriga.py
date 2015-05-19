@@ -11,6 +11,22 @@ USI_DATA = None
 USER_DATA = {}
 usi_loader = None
 
+def callback_send_values(do_repeat, user_data_record=None):
+    if user_data_record.iter_index >= len(USI_DATA.telemetries):
+        if do_repeat:
+            user_data_record.iter_index = 0
+        else:
+            user_data_record.request.close()
+            user_data_record.timer.cancel()
+    telemetry = USI_DATA.telemetries[user_data_record.iter_index]
+    user_data_record.request.send(param_values_responce(ARGS.code, telemetry))
+
+def cancel_user_host(user_host):
+    if user_host in USER_DATA:
+        if USER_DATA[user_host].timer is not None: USER_DATA[user_host].timer.cancel()
+        if USER_DATA[user_host].request is not None: USER_DATA[user_host].request.close()
+        del USER_DATA[user_host]
+
 class TCPHandle(SocketServer.BaseRequestHandler):
     def timeprint(string):
         print "[%s] %s" % (strftime("%Y-%m-%d %H:%M:%S", localtime()), string)
@@ -19,39 +35,57 @@ class TCPHandle(SocketServer.BaseRequestHandler):
         self.request.send(error_msg(ARGS.code))
 
     def handle(self):
+        is_derived_close = False
         data = 'data'
         data = self.request.recv(PACK_HEAD_SIZE)
         pkg_keyword, pkg_size, pkg_type = unpack_head(data)
         user_host = self.client_address[0]
         timeprint("Request from %s with %s keyword" % (user_host, pkg_keyword))
         if pkg_type == PARAM_LIST:
-            USER_DATA[user_host] = { params : [] }
-            pass
+            if pkg_size:
+                data = self.request.recv(pkg_size)
+                new_params = params_from_ask(data, USI_DATA.params)
+                USER_DATA[user_host] = { params : set(new_params), iter_index : 0, timer : None, request : None }
+            else:
+                if user_host in USER_DATA: del USER_DATA[user_host]
         elif pkg_type == PARAM_VALUES:
             if user_host not in USER_DATA:
                 timeprint('Attempt to get values from unsubsribed host %s' % user_host)
                 do_error()
-            pass
+            USER_DATA[user_host].request = self.request
+            USER_DATA[user_host].timer = Timer(ARGS.delay, callback_send_values, ARGS.repeat, {user_data_record : USER_DATA[user_host]})
+            USER_DATA[user_host].timer.start()
+            is_derived_close = True
         elif pkg_type == PARAM_INFO:
+            #not implemented. accissuble only in db.
             pass
         elif pkg_type == PARAM_CHECKCONNECT:
             timeprint("Connection check request")
             self.request.send('connected')
         elif pkg_type == PARAM_ADD:
-            pass
+            if pkg_size:
+                data = self.request.recv(pkg_size)
+                new_params = params_from_ask(data, USI_DATA.params)
+                if user_host in USER_DATA:
+                    for new_param in new_params: USER_DATA[user_host].params.add(new_param)
+                else:
+                    USER_DATA[user_host] = { params : set(new_params), iter_index : 0, timer : None, request : None }
         elif pkg_type == PARAM_DEL:
-            pass
+            if pkg_size and user_host in USER_DATA:
+                data = self.request.recv(pkg_size)
+                new_params = params_from_ask(data, USI_DATA.params)
+                for new_param in new_params: USER_DATA[user_host].params.remove(new_param)
         elif pkg_type == PARAM_ERROR:
             timeprint('An error occuured in client app at host %s' % user_host)
-            if user_host in USER_DATA: del USER_DATA[user_host]
+            cancel_user_host(user_host)
+            is_derived_close = True
         elif pkg_type == PARAM_DISCONNECT:
             timeprint('Host %s has been disconnected' % user_host)
-            if user_host in USER_DATA: del USER_DATA[user_host]
-        #if pkg_size:
-        #    data = self.request.recv(pkg_size)
-        #    if not data: break
-        timeprint("Responce closed")
-        self.request.close()
+            cancel_user_host(user_host)
+            is_derived_close = True
+        if not is_derived_close:
+            timeprint("Responce closed")
+            self.request.close()
 
 class ThreadedTCPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
     pass
