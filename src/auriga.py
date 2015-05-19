@@ -22,10 +22,14 @@ def callback_send_values(do_repeat, user_data_record=None):
     user_data_record.request.send(param_values_responce(ARGS.code, telemetry))
 
 def cancel_user_host(user_host):
-    if user_host in USER_DATA:
-        if USER_DATA[user_host].timer is not None: USER_DATA[user_host].timer.cancel()
-        if USER_DATA[user_host].request is not None: USER_DATA[user_host].request.close()
-        del USER_DATA[user_host]
+    if user_host not in USER_DATA: return
+    if USER_DATA[user_host].timer is not None: USER_DATA[user_host].timer.cancel()
+    if USER_DATA[user_host].request is not None: USER_DATA[user_host].request.close()
+    del USER_DATA[user_host]
+
+def clean_up():
+    for user_host in USER_DATA:
+        cancel_user_host(user_host)
 
 class TCPHandle(SocketServer.BaseRequestHandler):
     def timeprint(string):
@@ -114,7 +118,7 @@ def main():    #define argument options
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        pass
+        clean_up()
 
 if __name__ == "__main__":
     main()
