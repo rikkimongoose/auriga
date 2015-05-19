@@ -112,7 +112,7 @@ def main():    #define argument options
     server = ThreadedTCPServer((ARGS.server, ARGS.port), TCPHandle)
     print "*  *"
     print "    *  Auriga USI Server %s" % VER
-    print "*      by ZAO Merkury (http://mrcur.ru/), 2015"
+    print "*      (c)Rikki Mongoose (http://github.com/rikkimongoose/auriga), 2015"
     print "    *  Auriga application started on %s:%s" % (ARGS.server, ARGS.port)
     print " *     Ctrl+C to shutdown server; call with --help for options"
     try:
