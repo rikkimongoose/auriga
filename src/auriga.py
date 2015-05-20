@@ -56,16 +56,17 @@ class TCPHandle(SocketServer.BaseRequestHandler):
         elif pkg_type == PARAM_ADD:
             if pkg_size:
                 data = self.request.recv(pkg_size)
+                print data
                 new_params = params_from_ask(data, self.server.usi_data.params)
                 if user_host in self.server.user_data:
-                    map(lambda p : self.server.user_data[user_host].params.add(p), new_params)
+                    map(lambda p : self.server.user_data[user_host]['params'].add(p), new_params)
                 else:
                     self.server.user_data[user_host] = { params : set(new_params), iter_index : 0, timer : None, request : None }
         elif pkg_type == PARAM_DEL:
             if pkg_size and user_host in self.server.user_data:
                 data = self.request.recv(pkg_size)
                 new_params = params_from_ask(data, self.server.usi_data.params)
-                map(lambda p : self.server.user_data[user_host].params.remove(p), new_params)
+                map(lambda p : self.server.user_data[user_host]['params'].remove(p), new_params)
         elif pkg_type == PARAM_ERROR:
             timeprint('An error occuured in client app at host %s' % user_host)
             self.server.cancel_user_host(user_host)

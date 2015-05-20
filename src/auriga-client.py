@@ -10,7 +10,7 @@ def client(string, server, port):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     #sock.setblocking(0)
     sock.connect((server, port))
-    print "Sending: " + string
+    print "Sending (%s bytes): %s" % (len(string), string)
     sock.send(string)
     reply = sock.recv(16384)  # limit reply to 16K
     sock.close()
@@ -30,6 +30,10 @@ def main():
     telemetry = usi_data.telemetries[1]
     subscribe_request = param_list_request(ARGS.code, [param.param for param in telemetry.params])
     print client(subscribe_request, ARGS.server, ARGS.port)
+    delete_request = param_delete_request(ARGS.code, [telemetry.params[0].param.index])
+    print client(delete_request, ARGS.server, ARGS.port)
+    add_request = param_add_request(ARGS.code, [telemetry.params[0].param])
+    print client(add_request, ARGS.server, ARGS.port)
 
 if __name__ == "__main__":
     main()
