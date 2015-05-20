@@ -6,31 +6,16 @@ from usi import *
 from usiserver import *
 
 VER = "1.0"
-ARGS = None
-USER_DATA = {}
-usi_loader = None
 
-def callback_send_values(do_repeat, user_data_record=None):
+def callback_send_values(do_repeat, user_data_record = None, usi_data = None):
     if user_data_record.iter_index >= len(USI_DATA.telemetries):
         if do_repeat:
-            user_data_record.iter_index = 0
+            user_data_record['iter_index'] = 0
         else:
-            user_data_record.request.close()
-            user_data_record.timer.cancel()
-    telemetry = USI_DATA.telemetries[user_data_record.iter_index]
-    user_data_record.request.send(param_values_responce(ARGS.code, telemetry))
-
-def cancel_user_host(user_host):
-    if user_host not in USER_DATA: return
-    if USER_DATA[user_host]['timer'] is not None: USER_DATA[user_host]['timer'].cancel()
-    if USER_DATA[user_host]['request'] is not None:  USER_DATA[user_host]['request'].close()
-
-def del_user_host(user_host):
-    del USER_DATA[user_host]
-
-def clean_up():
-    for user_host in USER_DATA:
-        cancel_user_host(user_host)
+            user_data_record['request'].close()
+            user_data_record['timer'].cancel()
+    telemetry = usi_data.telemetries[user_data_record['iter_index']]
+    user_data_record.request.send(param_values_responce(user_data_record['code'], telemetry))
 
 def timeprint(string):
     print "[%s] %s" % (strftime("%Y-%m-%d %H:%M:%S", localtime()), string)
@@ -50,18 +35,18 @@ class TCPHandle(SocketServer.BaseRequestHandler):
                 data = self.request.recv(pkg_size)
                 timeprint("Subscribe request")
                 new_params = params_from_ask(data, self.server.usi_data.params)
-                USER_DATA[user_host] = { 'params' : set(new_params), 'iter_index' : 0, 'timer' : None, 'request' : None }
+                self.server.user_data[user_host] = { 'params' : set(new_params), 'code' : self.server.code, 'iter_index' : 0, 'timer' : None, 'request' : None }
                 self.request.send(param_list_request(self.server.code, new_params))
-            else:
-                if user_host in USER_DATA: del USER_DATA[user_host]
         elif pkg_type == PARAM_VALUES:
-            if user_host not in USER_DATA:
+            if user_host not in self.server.user_data:
                 timeprint('Attempt to get values from unsubsribed host %s' % user_host)
                 self.do_error()
-            USER_DATA[user_host].request = self.request
-            USER_DATA[user_host].timer = Timer(self.server.delay, callback_send_values, self.server.repeat, {user_data_record : USER_DATA[user_host]})
-            USER_DATA[user_host].timer.start()
-            is_derived_close = True
+            else:
+                timerThread = Timer(self.server.delay, callback_send_values, self.server.repeat, {'user_data_record' : self.server.user_data[user_host], 'usi_data' : self.server.usi_data})
+                self.server.user_data[user_host].request = self.request
+                self.server.user_data[user_host].timer = timerThread
+                timerThread.start()
+                is_derived_close = True
         elif pkg_type == PARAM_INFO:
             #not implemented. accissuble only in db.
             pass
@@ -72,31 +57,41 @@ class TCPHandle(SocketServer.BaseRequestHandler):
             if pkg_size:
                 data = self.request.recv(pkg_size)
                 new_params = params_from_ask(data, self.server.usi_data.params)
-                if user_host in USER_DATA:
-                    for new_param in new_params: USER_DATA[user_host].params.add(new_param)
+                if user_host in self.server.user_data:
+                    map(lambda p : self.server.user_data[user_host].params.add(p), new_params)
                 else:
-                    USER_DATA[user_host] = { params : set(new_params), iter_index : 0, timer : None, request : None }
+                    self.server.user_data[user_host] = { params : set(new_params), iter_index : 0, timer : None, request : None }
         elif pkg_type == PARAM_DEL:
-            if pkg_size and user_host in USER_DATA:
+            if pkg_size and user_host in self.server.user_data:
                 data = self.request.recv(pkg_size)
                 new_params = params_from_ask(data, self.server.usi_data.params)
-                for new_param in new_params: USER_DATA[user_host].params.remove(new_param)
+                map(lambda p : self.server.user_data[user_host].params.remove(p), new_params)
         elif pkg_type == PARAM_ERROR:
             timeprint('An error occuured in client app at host %s' % user_host)
-            cancel_user_host(user_host)
-            del_user_host(user_host)
+            self.server.cancel_user_host(user_host)
+            self.server.del_user_host(user_host)
             is_derived_close = True
         elif pkg_type == PARAM_DISCONNECT:
             timeprint('Host %s has been disconnected' % user_host)
-            cancel_user_host(user_host)
-            del_user_host(user_host)
+            self.server.cancel_user_host(user_host)
+            self.server.del_user_host(user_host)
             is_derived_close = True
         if not is_derived_close:
             timeprint("Responce closed")
             self.request.close()
 
 class ThreadedTCPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
-    pass
+    def cancel_user_host(self, user_host):
+        if user_host not in self.user_data: return
+        if self.user_data[user_host]['timer'] is not None: self.user_data[user_host]['timer'].cancel()
+        if self.user_data[user_host]['request'] is not None:  self.user_data[user_host]['request'].close()
+
+    def del_user_host(self, user_host):
+        del self.user_data[user_host]
+
+    def clean_up(self):
+        for user_host in self.user_data:
+            self.cancel_user_host(user_host)
 
 def main():
     parser = argparse.ArgumentParser(usage='%(prog)s [options]')
@@ -118,6 +113,7 @@ def main():
     server.code = ARGS.code
     server.repeat = ARGS.repeat
     server.delay = ARGS.delay
+    server.user_data = {}
 
     print "*  *"
     print "    *  Auriga USI Server %s" % VER
@@ -127,7 +123,7 @@ def main():
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        clean_up()
+        server.clean_up()
 
 if __name__ == "__main__":
     main()

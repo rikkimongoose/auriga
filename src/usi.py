@@ -320,8 +320,7 @@ class UsiDataLoader:
             do_read_param = self._read_param_usl
         else:
             do_read_param = self._read_param_usi
-        for index in range(0, self.usi_info.sub_header.params_count):
-            self.usi_info.params.append(do_read_param(index))
+        map(lambda i : self.usi_info.params.append(do_read_param(i)), range(0, self.usi_info.sub_header.params_count))
 
     def do_load_telemetry(self):
         telemetry_data = self._read_telemetry()
