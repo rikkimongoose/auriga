@@ -194,7 +194,7 @@ class UsiDataLoader:
         service_info_type = SERVICE_INFO
         chunk = self.file.read(UsiServiceInfoHead.HEAD_SIZE)
         self.file.seek(0)
-        head_tag = unpack('<4s', chunk)[0]
+        head_tag = strip_c_str(unpack('<4s', chunk)[0])
         if head_tag == UsiServiceInfoHead.HEAD_TAG:
             return SERVICE_INFO_HEAD
         return SERVICE_INFO
@@ -205,12 +205,22 @@ class UsiDataLoader:
         if self.usi_info.service_info_type == SERVICE_INFO:
             service_info = UsiServiceInfo()
             chunk = self.file.read(UsiServiceInfo.STRUCT_SIZE)
-            service_info.keyword, service_info.title, service_info.num, service_info.test_section, service_info.drawing_num, service_info.file_start, service_info.file_finish, service_info.creation_time = unpack('<10s11s11s17s11sff16s', chunk)
+            keyword, title, num, test_section, drawing_num, file_start, file_finish, creation_time = unpack('<10s11s11s17s11sff16s', chunk)
+            service_info.keyword = strip_c_str(keyword)
+            service_info.title = strip_c_str(title)
+            service_info.num = strip_c_str(num)
+            service_info.test_sectio = strip_c_str(test_section)
+            service_info.drawing_num = strip_c_str(drawing_num)
+            service_info.file_start = file_start
+            service_info.file_finish = file_finish
+            service_info.creation_time = strip_c_str(creation_time)
         elif self.usi_info.service_info_type == SERVICE_INFO_HEAD:
             service_info = UsiServiceInfoHead()
             self.file.seek(UsiServiceInfoHead.HEAD_SIZE)
             chunk = self.file.read(UsiServiceInfo.STRUCT_SIZE - UsiServiceInfoHead.HEAD_SIZE)
-            service_info.code, service_info.description = unpack('<B79s', chunk)
+            code, description = unpack('<B79s', chunk)
+            service_info.code = code
+            service_info.description = strip_c_str(description)
         return service_info
 
     def _read_subheader_data(self):
@@ -228,10 +238,9 @@ class UsiDataLoader:
         param_data = UsiParam()
         chunk = self.file.read(UsiParam.STRUCT_SIZE)
         name, param_type, in_address, out_address, param_additional_type, algorithm_num, bit_num, local_num, dimension = unpack('<10sHHHHBBH10s', chunk)
-
         param_data.index = index
         param_data.index_str = str(index)
-        param_data.name = name
+        param_data.name = strip_c_str(name)
         param_data.param_type_num = param_type
         param_data.param_type = self._get_param_type_title(param_type)
         param_data.in_address = in_address
@@ -241,17 +250,16 @@ class UsiDataLoader:
         param_data.algorithm_num = algorithm_num
         param_data.bit_num = bit_num
         param_data.local_num = local_num
-        param_data.dimension = dimension
+        param_data.dimension = strip_c_str(dimension)
         return param_data
 
     def _read_param_usl(self, index):
         param_data = UslParam()
         chunk = self.file.read(UslParam.STRUCT_SIZE)
         name, dimension, description, param_type, in_address, out_address, param_additional_type, algorithm_num, bit_num, local_num, reserved = unpack('<32s32s32sHHHHBBH148s', chunk)
-
         param_data.index = index
         param_data.index_str = str(index)
-        param_data.name = name
+        param_data.name = strip_c_str(name)
         param_data.param_type_num = param_type
         param_data.param_type = self._get_param_type_title(param_type)
         param_data.in_address = in_address
@@ -261,10 +269,10 @@ class UsiDataLoader:
         param_data.algorithm_num = algorithm_num
         param_data.bit_num = bit_num
         param_data.local_num = local_num
-        param_data.dimension = dimension
-
-        param_data.description = description
-        param_data.reserved = reserv
+        param_data.dimension = strip_c_str(dimension)
+        
+        param_data.description = strip_c_str(description)
+        param_data.reserved = strip_c_str(reserv)
         return param_data
 
     def _read_telemetry(self):

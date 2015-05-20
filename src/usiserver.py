@@ -47,9 +47,8 @@ def params_from_ask(ask_params_data, params):
         ask_param_data = ask_params_data[offset : offset + ASK_PARAM_SIZE]
         index, param_type_num, name = unpack('<Hb32s', ask_param_data)
         name = strip_c_str(name)
-        if filter(lambda p: strip_c_str(p.name) == name, params):
+        if filter(lambda p: p.name == name, params):
             param_titles.append(UsiParam(name, index, param_type_num))
-            print name
         offset += ASK_PARAM_SIZE
     return param_titles
 
