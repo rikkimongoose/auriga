@@ -96,6 +96,8 @@ class ThreadedTCPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
 def main():
     parser = argparse.ArgumentParser(usage='%(prog)s [options]')
     parser.add_argument('-V', '--version', action='version', version='auriga %s' % VER)
+    parser.add_argument('-o', '--output', action='store_true', default=False, help='just output usi file, without starting server')
+    parser.add_argument('-u', '--output_params', action='store_true', default=False, help='just output params of loaded usi file, without starting server')
     parser.add_argument('-s', '--server', type=str, default="localhost", help='host to attach')
     parser.add_argument('-p', '--port', type=int, default=USI_PORT_DEFAULT, help='port to listen')
     parser.add_argument('-r', '--repeat', action='store_true', default=False, help='repeat USI')
@@ -107,6 +109,14 @@ def main():
     usi_loader = UsiDataLoader(None)
     usi_loader.set_file(ARGS.usifile)
     usi_data = usi_loader.do_load()
+
+    if ARGS.output_params:
+        for param in usi_data.params: print ("%s %s\n" % (param.name, param.param_type))
+        print ""
+        return
+    if ARGS.output:
+        print usi_data
+        return
 
     server = ThreadedTCPServer((ARGS.server, ARGS.port), TCPHandle)
     server.usi_data = usi_data
