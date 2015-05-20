@@ -7,7 +7,6 @@ from usiserver import *
 
 VER = "1.0"
 ARGS = None
-USI_DATA = None
 USER_DATA = {}
 usi_loader = None
 
@@ -23,41 +22,44 @@ def callback_send_values(do_repeat, user_data_record=None):
 
 def cancel_user_host(user_host):
     if user_host not in USER_DATA: return
-    if USER_DATA[user_host].timer is not None: USER_DATA[user_host].timer.cancel()
-    if USER_DATA[user_host].request is not None: USER_DATA[user_host].request.close()
+    if USER_DATA[user_host]['timer'] is not None: USER_DATA[user_host]['timer'].cancel()
+    if USER_DATA[user_host]['request'] is not None:  USER_DATA[user_host]['request'].close()
+
+def del_user_host(user_host):
     del USER_DATA[user_host]
 
 def clean_up():
     for user_host in USER_DATA:
         cancel_user_host(user_host)
 
-class TCPHandle(SocketServer.BaseRequestHandler):
-    def timeprint(string):
-        print "[%s] %s" % (strftime("%Y-%m-%d %H:%M:%S", localtime()), string)
+def timeprint(string):
+    print "[%s] %s" % (strftime("%Y-%m-%d %H:%M:%S", localtime()), string)
 
+class TCPHandle(SocketServer.BaseRequestHandler):
     def do_error(self):
-        self.request.send(error_msg(ARGS.code))
+        self.request.send(error_msg(self.server.code))
 
     def handle(self):
         is_derived_close = False
-        data = 'data'
         data = self.request.recv(PACK_HEAD_SIZE)
         pkg_keyword, pkg_size, pkg_type = unpack_head(data)
         user_host = self.client_address[0]
-        timeprint("Request from %s with %s keyword" % (user_host, pkg_keyword))
+        timeprint("Request from %s with %s keyword, package size: %s" % (user_host, pkg_keyword, pkg_size))
         if pkg_type == PARAM_LIST:
             if pkg_size:
                 data = self.request.recv(pkg_size)
-                new_params = params_from_ask(data, USI_DATA.params)
-                USER_DATA[user_host] = { params : set(new_params), iter_index : 0, timer : None, request : None }
+                timeprint("Subscribe request")
+                new_params = params_from_ask(data, self.server.usi_data.params)
+                USER_DATA[user_host] = { 'params' : set(new_params), 'iter_index' : 0, 'timer' : None, 'request' : None }
+                self.request.send(param_list_request(self.server.code, new_params))
             else:
                 if user_host in USER_DATA: del USER_DATA[user_host]
         elif pkg_type == PARAM_VALUES:
             if user_host not in USER_DATA:
                 timeprint('Attempt to get values from unsubsribed host %s' % user_host)
-                do_error()
+                self.do_error()
             USER_DATA[user_host].request = self.request
-            USER_DATA[user_host].timer = Timer(ARGS.delay, callback_send_values, ARGS.repeat, {user_data_record : USER_DATA[user_host]})
+            USER_DATA[user_host].timer = Timer(self.server.delay, callback_send_values, self.server.repeat, {user_data_record : USER_DATA[user_host]})
             USER_DATA[user_host].timer.start()
             is_derived_close = True
         elif pkg_type == PARAM_INFO:
@@ -69,7 +71,7 @@ class TCPHandle(SocketServer.BaseRequestHandler):
         elif pkg_type == PARAM_ADD:
             if pkg_size:
                 data = self.request.recv(pkg_size)
-                new_params = params_from_ask(data, USI_DATA.params)
+                new_params = params_from_ask(data, self.server.usi_data.params)
                 if user_host in USER_DATA:
                     for new_param in new_params: USER_DATA[user_host].params.add(new_param)
                 else:
@@ -77,15 +79,17 @@ class TCPHandle(SocketServer.BaseRequestHandler):
         elif pkg_type == PARAM_DEL:
             if pkg_size and user_host in USER_DATA:
                 data = self.request.recv(pkg_size)
-                new_params = params_from_ask(data, USI_DATA.params)
+                new_params = params_from_ask(data, self.server.usi_data.params)
                 for new_param in new_params: USER_DATA[user_host].params.remove(new_param)
         elif pkg_type == PARAM_ERROR:
             timeprint('An error occuured in client app at host %s' % user_host)
             cancel_user_host(user_host)
+            del_user_host(user_host)
             is_derived_close = True
         elif pkg_type == PARAM_DISCONNECT:
             timeprint('Host %s has been disconnected' % user_host)
             cancel_user_host(user_host)
+            del_user_host(user_host)
             is_derived_close = True
         if not is_derived_close:
             timeprint("Responce closed")
@@ -107,9 +111,14 @@ def main():
 
     usi_loader = UsiDataLoader(None)
     usi_loader.set_file(ARGS.usifile)
-    USI_DATA = usi_loader.do_load()
+    usi_data = usi_loader.do_load()
 
     server = ThreadedTCPServer((ARGS.server, ARGS.port), TCPHandle)
+    server.usi_data = usi_data
+    server.code = ARGS.code
+    server.repeat = ARGS.repeat
+    server.delay = ARGS.delay
+
     print "*  *"
     print "    *  Auriga USI Server %s" % VER
     print "*      (c)Rikki Mongoose (http://github.com/rikkimongoose/auriga), 2015"

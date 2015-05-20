@@ -33,6 +33,9 @@ PARAM_ADD_TYPE_CIM            = 4
 PARAM_ADD_TYPE_DESH           = 5
 PARAM_ADD_TYPE_SIGNAL_CONTROL = 6
 
+def strip_c_str(string):
+    return string.strip(chr(0x0))
+
 class UsiInfo:
     def __init__(self):
         self.service_info = None

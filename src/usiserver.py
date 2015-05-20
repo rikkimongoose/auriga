@@ -23,8 +23,19 @@ ASK_PARAM_SIZE = 0x23
 
 PARAM_HEAD_STRUCT = '<10sHH'
 
+class UsiParam:
+    def __init__(self, name, index, param_type_num):
+        self.name = name
+        self.index = index
+        self.param_type_num = param_type_num
+
+    def __str__(self):
+        return self.name
+
 def unpack_head(data):
-    return unpack(PARAM_HEAD_STRUCT, data)
+    pkg_keyword, pkg_size, pkg_type = unpack(PARAM_HEAD_STRUCT, data)
+    pkg_keyword = strip_c_str(pkg_keyword)
+    return (pkg_keyword, pkg_size, pkg_type)
 
 def param_to_ask(param):
     return pack('<Hb32s', param.index, param.param_type_num, param.name[:32])
@@ -34,11 +45,11 @@ def params_from_ask(ask_params_data, params):
     offset = 0
     while offset < len(ask_params_data):
         ask_param_data = ask_params_data[offset : offset + ASK_PARAM_SIZE]
-        index, param_type_num, name = unpack('<Hb32s', ask_param)
-        for param in params:
-            if param.name == name:
-                param_titles.append(name)
-                break
+        index, param_type_num, name = unpack('<Hb32s', ask_param_data)
+        name = strip_c_str(name)
+        if filter(lambda p: strip_c_str(p.name) == name, params):
+            param_titles.append(UsiParam(name, index, param_type_num))
+            print name
         offset += ASK_PARAM_SIZE
     return param_titles
 
