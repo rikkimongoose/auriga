@@ -39,6 +39,7 @@ class TCPHandle(SocketServer.BaseRequestHandler):
                 telemetries_len = len(self.server.usi_data.telemetries)
                 while self.server.user_data[user_host]['iter_index'] < telemetries_len:
                     try:
+                        timeprint('Sending telemetry #%s' % self.server.user_data[user_host]['iter_index'])
                         self.request.send(param_values_responce(self.server.code, self.server.usi_data.telemetries[self.server.user_data[user_host]['iter_index']]))
                         sleep(timer_delay)
                     except Exception as ex:
