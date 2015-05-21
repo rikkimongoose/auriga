@@ -1,7 +1,6 @@
 #!/usr/bin/env python
-import SocketServer, sys, argparse
+import SocketServer, sys, argparse, threading
 from time import strftime, localtime
-from threading import Thread
 from usi import *
 from usiserver import *
 
@@ -14,7 +13,10 @@ def callback_send_values(do_repeat, user_data_record = None, usi_data = None):
         else:
             user_data_record['request'].close()
             user_data_record['timer'].cancel()
-    telemetry = usi_data.telemetries[user_data_record['iter_index']]
+    iter_index = user_data_record['iter_index']
+    timeprint('Telemetry #%s' % iter_index)
+    telemetry = usi_data.telemetries[iter_index]
+    user_data_record['iter_index'] += 1
     user_data_record.request.send(param_values_responce(user_data_record['code'], telemetry))
 
 def timeprint(string):
@@ -42,9 +44,11 @@ class TCPHandle(SocketServer.BaseRequestHandler):
                 timeprint('Attempt to get values from unsubsribed host %s' % user_host)
                 self.do_error()
             else:
-                timerThread = Timer(self.server.delay, callback_send_values, self.server.repeat, {'user_data_record' : self.server.user_data[user_host], 'usi_data' : self.server.usi_data})
-                self.server.user_data[user_host].request = self.request
-                self.server.user_data[user_host].timer = timerThread
+                timeprint('Request for values from %s' % user_host)
+                print self.server.delay
+                timerThread = threading.Timer(self.server.delay, callback_send_values, self.server.repeat, {'user_data_record' : self.server.user_data[user_host], 'usi_data' : self.server.usi_data})
+                self.server.user_data[user_host]['request'] = self.request
+                self.server.user_data[user_host]['timer'] = timerThread
                 timerThread.start()
                 is_derived_close = True
         elif pkg_type == PARAM_INFO:
