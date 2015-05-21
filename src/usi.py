@@ -297,7 +297,7 @@ class UsiDataLoader:
             elif size_for_param == 4: value = unpack('<L', subchunk)[0]
             elif size_for_param == 8: value = unpack('<Q', subchunk)[0]
             else: sys.stderr.write("Unknown type of param: %s" % param.param_type)
-            if param.bit_num:
+            if param.param_type_num == PARAM_TYPE_SIGNAL:
                 if 1 << param.bit_num & value: value = 1
                 else: value = 0
             if param.index_str not in self.params_loaded or self.params_loaded[param.index_str] != value:

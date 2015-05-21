@@ -41,12 +41,8 @@ class TCPHandle(SocketServer.BaseRequestHandler):
                     try:
                         self.request.send(param_values_responce(self.server.code, self.server.usi_data.telemetries[self.server.user_data[user_host]['iter_index']]))
                         sleep(timer_delay)
-                    except KeyboardInterrupt:
-                        self.server.clean_up()
-                        return
-                    except:
-                        timeprint('Communication is lost')
-                        self.server.clean_up()
+                    except Exception as ex:
+                        timeprint('Communication breakdown')
                         return
                     self.server.user_data[user_host]['iter_index'] += 1
                     if self.server.user_data[user_host]['iter_index']  >= telemetries_len and do_repeat:
@@ -90,7 +86,10 @@ class TCPHandle(SocketServer.BaseRequestHandler):
 class ThreadedTCPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
     def cancel_user_host(self, user_host):
         if user_host not in self.user_data: return
-        if self.user_data[user_host]['request'] is not None:  self.user_data[user_host]['request'].close()
+        if self.user_data[user_host]['request'] is not None:
+            self.user_data[user_host]['request'].send(disconnect_msg(self.user_data[user_host]['code']))
+            self.user_data[user_host]['request'].close()
+            self.user_data[user_host]['request'] = None
 
     def del_user_host(self, user_host):
         del self.user_data[user_host]
