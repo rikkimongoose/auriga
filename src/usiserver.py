@@ -103,7 +103,12 @@ def param_values_responce(code, telemetry):
     for param_value in telemetry.params:
         data_buff = None
         if param_value.param.param_type_num == PARAM_TYPE_SIGNAL:
-            data_buff = pack('<Hb', param_value.param.index, param_value.value)
+            try:
+                data_buff = pack('<Hb', param_value.param.index, param_value.value)
+            except:
+                data_buff = pack('<HB', param_value.param.index, 0)
+                print "Bad value: %s" % param_value.value
+
         elif param_value.param.param_type_num == PARAM_TYPE_FUNCTION:
             data_buff = pack('<Hf', param_value.param.index, param_value.value)
         elif param_value.param.param_type_num == PARAM_TYPE_FUNCTION_DOUBLE:

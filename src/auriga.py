@@ -1,23 +1,11 @@
 #!/usr/bin/env python
-import SocketServer, sys, argparse, threading
-from time import strftime, localtime
+import SocketServer, sys, argparse
+from threading import Timer, Thread, Event
+from time import strftime, localtime, sleep
 from usi import *
 from usiserver import *
 
 VER = "1.0"
-
-def callback_send_values(do_repeat, user_data_record = None, usi_data = None):
-    if user_data_record.iter_index >= len(USI_DATA.telemetries):
-        if do_repeat:
-            user_data_record['iter_index'] = 0
-        else:
-            user_data_record['request'].close()
-            user_data_record['timer'].cancel()
-    iter_index = user_data_record['iter_index']
-    timeprint('Telemetry #%s' % iter_index)
-    telemetry = usi_data.telemetries[iter_index]
-    user_data_record['iter_index'] += 1
-    user_data_record.request.send(param_values_responce(user_data_record['code'], telemetry))
 
 def timeprint(string):
     print "[%s] %s" % (strftime("%Y-%m-%d %H:%M:%S", localtime()), string)
@@ -37,7 +25,7 @@ class TCPHandle(SocketServer.BaseRequestHandler):
                 data = self.request.recv(pkg_size)
                 timeprint("Subscribe request")
                 new_params = params_from_ask(data, self.server.usi_data.params)
-                self.server.user_data[user_host] = { 'params' : set(new_params), 'code' : self.server.code, 'iter_index' : 0, 'timer' : None, 'request' : None }
+                self.server.user_data[user_host] = { 'params' : set(new_params), 'code' : self.server.code, 'iter_index' : 0 }
                 self.request.send(param_list_request(self.server.code, new_params))
         elif pkg_type == PARAM_VALUES:
             if user_host not in self.server.user_data:
@@ -45,11 +33,24 @@ class TCPHandle(SocketServer.BaseRequestHandler):
                 self.do_error()
             else:
                 timeprint('Request for values from %s' % user_host)
-                print self.server.delay
-                timerThread = threading.Timer(self.server.delay, callback_send_values, self.server.repeat, {'user_data_record' : self.server.user_data[user_host], 'usi_data' : self.server.usi_data})
+                timer_delay = self.server.delay / 1000
                 self.server.user_data[user_host]['request'] = self.request
-                self.server.user_data[user_host]['timer'] = timerThread
-                timerThread.start()
+                self.server.user_data[user_host]['iter_index']  = 0
+                telemetries_len = len(self.server.usi_data.telemetries)
+                while self.server.user_data[user_host]['iter_index'] < telemetries_len:
+                    try:
+                        self.request.send(param_values_responce(self.server.code, self.server.usi_data.telemetries[self.server.user_data[user_host]['iter_index']]))
+                        sleep(timer_delay)
+                    except KeyboardInterrupt:
+                        self.server.clean_up()
+                        return
+                    except:
+                        timeprint('Communication is lost')
+                        self.server.clean_up()
+                        return
+                    self.server.user_data[user_host]['iter_index'] += 1
+                    if self.server.user_data[user_host]['iter_index']  >= telemetries_len and do_repeat:
+                        self.server.user_data[user_host]['iter_index'] = 0
                 is_derived_close = True
         elif pkg_type == PARAM_INFO:
             #not implemented. accissuble only in db.
@@ -65,7 +66,7 @@ class TCPHandle(SocketServer.BaseRequestHandler):
                 if user_host in self.server.user_data:
                     map(lambda p : self.server.user_data[user_host]['params'].add(p), new_params)
                 else:
-                    self.server.user_data[user_host] = { params : set(new_params), iter_index : 0, timer : None, request : None }
+                    self.server.user_data[user_host] = { params : set(new_params), iter_index : 0, request : None }
         elif pkg_type == PARAM_DEL:
             timeprint("Request for deleting subscriptions")
             if pkg_size and user_host in self.server.user_data:
@@ -89,7 +90,6 @@ class TCPHandle(SocketServer.BaseRequestHandler):
 class ThreadedTCPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
     def cancel_user_host(self, user_host):
         if user_host not in self.user_data: return
-        if self.user_data[user_host]['timer'] is not None: self.user_data[user_host]['timer'].cancel()
         if self.user_data[user_host]['request'] is not None:  self.user_data[user_host]['request'].close()
 
     def del_user_host(self, user_host):
@@ -98,6 +98,9 @@ class ThreadedTCPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
     def clean_up(self):
         for user_host in self.user_data:
             self.cancel_user_host(user_host)
+
+def callback_test_timer(string):
+    print string
 
 def main():
     parser = argparse.ArgumentParser(usage='%(prog)s [options]')
@@ -137,7 +140,7 @@ def main():
     print "    *  Auriga application started on %s:%s" % (ARGS.server, ARGS.port)
     print " *     Ctrl+C to shutdown server; call with --help for options"
     try:
-        server.serve_forever()
+       server.serve_forever()
     except KeyboardInterrupt:
         server.clean_up()
 
