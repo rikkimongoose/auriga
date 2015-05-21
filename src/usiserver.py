@@ -20,6 +20,7 @@ PARAM_DISCONNECT   = 102
 PACK_HEAD_SIZE = 0xE
 
 ASK_PARAM_SIZE = 0x23
+ASK_PARAM_INDEX_SIZE = 0x2
 
 PARAM_HEAD_STRUCT = '<10sHH'
 
@@ -39,6 +40,17 @@ def unpack_head(data):
 
 def param_to_ask(param):
     return pack('<Hb32s', param.index, param.param_type_num, param.name[:32])
+
+def param_from_ask_index(ask_params_data, params):
+    param_titles = []
+    offset = 0
+    while offset < len(ask_params_data):
+        ask_param_data = ask_params_data[offset : offset + ASK_PARAM_INDEX_SIZE]
+        index = unpack('<H', ask_param_data)
+        if filter(lambda p: p.index == index, params):
+            param_titles.append(UsiParam(name, index, param_type_num))
+        offset += ASK_PARAM_INDEX_SIZE
+    return param_titles
 
 def params_from_ask(ask_params_data, params):
     param_titles = []
