@@ -126,8 +126,11 @@ def main():
     if ARGS.output:
         print usi_data
         return
-
-    server = ThreadedTCPServer((ARGS.server, ARGS.port), TCPHandle)
+    try:
+        server = ThreadedTCPServer((ARGS.server, ARGS.port), TCPHandle)
+    except Exception:
+        sys.stderr.write('Socket %s:%s is already occupied. Unable to run Auriga server.\n' % (ARGS.server, ARGS.port))
+        quit()
     server.usi_data = usi_data
     server.code = ARGS.code
     server.repeat = ARGS.repeat
