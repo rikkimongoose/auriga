@@ -6,20 +6,31 @@ from usiserver import *
 ARGS = None
 VER = "1.0"
 
-def client(string, server, port, has_responce = True):
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    #sock.setblocking(0)
-    sock.connect((server, port))
-    print "Sending (%s bytes)" % (len(string))
-    sock.send(string)
-    if not has_responce: return ""
+def read_head(sock):
     head_data = sock.recv(PARAM_HEAD_SIZE)
+    if not head_data: return 0
     (pkg_keyword, pkg_size, pkg_type) = unpack_head(head_data)
     print "Receiving %s bytes" % (pkg_size)
-    reply = sock.recv(pkg_size)
-    #print reply
-    #while reply:
-    #   reply += sock.recv(16384)  # limit reply to 16K
+    return pkg_size
+
+def client(cmd_buff, server, port, output_func = None, finite_responce = True):
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.connect((server, port))
+    print "Sending (%s bytes)" % (len(cmd_buff))
+    sock.send(cmd_buff)
+    reply = ''
+    if output_func:
+        pkg_size = read_head(sock)
+        if finite_responce:
+            reply = sock.recv(pkg_size)
+            output_func(reply)
+        else:
+            while pkg_size:
+                data = sock.recv(pkg_size)
+                if not data: break
+                output_func(data)
+                reply += data
+                pkg_size = read_head(sock)
     sock.close()
     return reply
 
@@ -35,15 +46,16 @@ def main():
     usi_loader.set_file(ARGS.usifile)
     usi_data = usi_loader.do_load()
     telemetry = usi_data.telemetries[1]
+    output_func = lambda x : sys.stdout.write(str(x) + '\n')
     print "Subscribe with params"
     subscribe_request = param_list_request(ARGS.code, [param.param for param in telemetry.params])
-    print subscribe_unpack(client(subscribe_request, ARGS.server, ARGS.port))
+    client(subscribe_request, ARGS.server, ARGS.port, lambda x: output_func(subscribe_unpack(x)))
     print "Delete param"
     delete_request = param_delete_request(ARGS.code, [telemetry.params[0].param.index])
     client(delete_request, ARGS.server, ARGS.port, False)
-    #print "Receive param values"
-    #value_request = param_values_request(ARGS.code)
-    #print value_unpack(client(value_request, ARGS.server, ARGS.port))
+    print "Receive param values"
+    value_request = param_values_request(ARGS.code)
+    client(value_request, ARGS.server, ARGS.port, lambda x: output_func(value_unpack(x)), False)
 
 if __name__ == "__main__":
     main()

@@ -108,30 +108,33 @@ def subscribe_unpack(data):
 def value_unpack(data):
     return data
 
-def param_values_responce(code, telemetry):
+def param_values_responce(code, telemetry, append_inner_time = False):
     params_buff = ''
     for param_value in telemetry.params:
-        data_buff = None
+        if append_inner_time:
+            data_buff = pack('<HH', param_value.param.index & 0x100000, 1)
+        else:
+            data_buff = pack('<H', param_value.param.index)
         if param_value.param.param_type_num == PARAM_TYPE_SIGNAL:
-            data_buff = pack('<Hb', param_value.param.index, param_value.value)
+            data_buff += pack('<b', param_value.value)
         elif param_value.param.param_type_num == PARAM_TYPE_FUNCTION:
-            data_buff = pack('<Hf', param_value.param.index, param_value.value)
+            data_buff += pack('<f', param_value.value)
         elif param_value.param.param_type_num == PARAM_TYPE_FUNCTION_DOUBLE:
-            data_buff = pack('<Hd', param_value.param.index, param_value.value)
+            data_buff += pack('<d', param_value.value)
         elif param_value.param.param_type_num == PARAM_TYPE_CODE:
-            data_buff = pack('<HH', param_value.param.index, param_value.value)
+            data_buff += pack('<H', param_value.value)
         elif param_value.param.param_type_num == PARAM_TYPE_CODE_LONG:
-            data_buff = pack('<Hl', param_value.param.index, param_value.value)
+            data_buff += pack('<l', param_value.value)
         elif param_value.param.param_type_num == PARAM_TYPE_STRING:
             val = value[:63]
             str_len = len(val)
-            data_buff = pack('<Hc%ss' % str_len, param_value.param.index, str_len, val)
+            data_buff += pack('<c%ss' % str_len, str_len, val)
         elif param_value.param.param_type_num == PARAM_TYPE_COMPLEX:
-            data_buff = pack('<HHff', param_value.param.index, param_value.value, param_value.percent, param_value.physical)
-        if data_buff is None: continue
+            data_buff += pack('<Hff', param_value.value, param_value.percent, param_value.physical)
+        else: continue
         params_buff += data_buff
-    prefix_buff = pack(PARAM_HEAD_STRUCT, code, len(params_buff) + 4, PARAM_VALUES)
     time_buff = pack('<i', telemetry.time)
+    prefix_buff = pack(PARAM_HEAD_STRUCT, code, len(params_buff) + len(time_buff), PARAM_VALUES)
     return prefix_buff + time_buff + params_buff
 
 def checkconnect_msg(code):

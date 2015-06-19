@@ -46,7 +46,7 @@ class TCPHandle(SocketServer.BaseRequestHandler):
                         timeprint('Communication breakdown with %s' % user_host)
                         return
                     self.server.user_data[user_host]['iter_index'] += 1
-                    if self.server.user_data[user_host]['iter_index']  >= telemetries_len and do_repeat:
+                    if self.server.user_data[user_host]['iter_index']  >= telemetries_len: #and do_repeat:
                         self.server.user_data[user_host]['iter_index'] = 0
                 is_derived_close = True
         elif pkg_type == PARAM_INFO:
@@ -87,7 +87,7 @@ class TCPHandle(SocketServer.BaseRequestHandler):
 class ThreadedTCPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
     def cancel_user_host(self, user_host):
         if user_host not in self.user_data: return
-        if self.user_data[user_host]['request'] is not None:
+        if 'request' in self.user_data[user_host] and self.user_data[user_host]['request'] is not None:
             self.user_data[user_host]['request'].send(disconnect_msg(self.user_data[user_host]['code']))
             self.user_data[user_host]['request'].close()
             self.user_data[user_host]['request'] = None
@@ -110,6 +110,7 @@ def main():
     parser.add_argument('-s', '--server', type=str, default="localhost", help='host to attach')
     parser.add_argument('-p', '--port', type=int, default=USI_PORT_DEFAULT, help='port to listen')
     parser.add_argument('-r', '--repeat', action='store_true', default=False, help='repeat USI')
+    parser.add_argument('-t', '--time', action='store_true', default=False, help='add inner time')
     parser.add_argument('-d', '--delay', type=int, default=1000, help='delay of timer in msec')
     parser.add_argument('-c', '--code', type=str, default=CODE_GVM_DRAW, help='USI server code')
     parser.add_argument('usifile', nargs='?', type=argparse.FileType('rb'), default=sys.stdin, help='USI/USL file')
