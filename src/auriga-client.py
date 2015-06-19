@@ -6,16 +6,20 @@ from usiserver import *
 ARGS = None
 VER = "1.0"
 
-def client(string, server, port):
+def client(string, server, port, has_responce = True):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     #sock.setblocking(0)
     sock.connect((server, port))
-    print "Sending (%s bytes): %s" % (len(string), string)
+    print "Sending (%s bytes)" % (len(string))
     sock.send(string)
-    reply = 'data'
-    while reply:
-        reply = sock.recv(16384)  # limit reply to 16K
-        print reply
+    if not has_responce: return ""
+    head_data = sock.recv(PARAM_HEAD_SIZE)
+    (pkg_keyword, pkg_size, pkg_type) = unpack_head(head_data)
+    print "Receiving %s bytes" % (pkg_size)
+    reply = sock.recv(pkg_size)
+    #print reply
+    #while reply:
+    #   reply += sock.recv(16384)  # limit reply to 16K
     sock.close()
     return reply
 
@@ -31,12 +35,15 @@ def main():
     usi_loader.set_file(ARGS.usifile)
     usi_data = usi_loader.do_load()
     telemetry = usi_data.telemetries[1]
+    print "Subscribe with params"
     subscribe_request = param_list_request(ARGS.code, [param.param for param in telemetry.params])
-    client(subscribe_request, ARGS.server, ARGS.port)
+    print subscribe_unpack(client(subscribe_request, ARGS.server, ARGS.port))
+    print "Delete param"
     delete_request = param_delete_request(ARGS.code, [telemetry.params[0].param.index])
-    client(delete_request, ARGS.server, ARGS.port)
-    value_request = param_values_request(ARGS.code)
-    client(value_request, ARGS.server, ARGS.port)
+    client(delete_request, ARGS.server, ARGS.port, False)
+    #print "Receive param values"
+    #value_request = param_values_request(ARGS.code)
+    #print value_unpack(client(value_request, ARGS.server, ARGS.port))
 
 if __name__ == "__main__":
     main()

@@ -19,10 +19,12 @@ PARAM_DISCONNECT   = 102
 
 PACK_HEAD_SIZE = 0xE
 
+ASK_PARAM_STRUCT = '<Hb32s'
 ASK_PARAM_SIZE = 0x23
 ASK_PARAM_INDEX_SIZE = 0x2
 
 PARAM_HEAD_STRUCT = '<10sHH'
+PARAM_HEAD_SIZE = 0x0E
 
 class UsiParam:
     def __init__(self, name, index, param_type_num):
@@ -39,7 +41,7 @@ def unpack_head(data):
     return (pkg_keyword, pkg_size, pkg_type)
 
 def param_to_ask(param):
-    return pack('<Hb32s', param.index, param.param_type_num, param.name[:32])
+    return pack(ASK_PARAM_STRUCT, param.index, param.param_type_num, param.name[:32])
 
 def param_from_ask_index(ask_params_data, params):
     param_titles = []
@@ -52,14 +54,16 @@ def param_from_ask_index(ask_params_data, params):
         offset += ASK_PARAM_INDEX_SIZE
     return param_titles
 
-def params_from_ask(ask_params_data, params):
+def params_from_ask(ask_params_data, params = None):
     param_titles = []
     offset = 0
     while offset < len(ask_params_data):
         ask_param_data = ask_params_data[offset : offset + ASK_PARAM_SIZE]
-        index, param_type_num, name = unpack('<Hb32s', ask_param_data)
+        index, param_type_num, name = unpack(ASK_PARAM_STRUCT, ask_param_data)
         name = strip_c_str(name)
-        if filter(lambda p: p.name == name, params):
+        if params is None:
+            param_titles.append(name)
+        elif filter(lambda p: p.name == name, params):
             param_titles.append(UsiParam(name, index, param_type_num))
         offset += ASK_PARAM_SIZE
     return param_titles
@@ -97,6 +101,12 @@ def param_info_responce(code, param_infos):
 
 def param_values_request(code):
     return pack(PARAM_HEAD_STRUCT, code, 0, PARAM_VALUES)
+
+def subscribe_unpack(data):
+    return  "\n".join(params_from_ask(data))
+
+def value_unpack(data):
+    return data
 
 def param_values_responce(code, telemetry):
     params_buff = ''
