@@ -8,6 +8,12 @@ CODE_SEA_LAUNCH = "SEA_LAUN53"
 
 USI_PORT_DEFAULT = 0x3131
 
+VALUES_TIME_SIZE = 0x4
+INNER_TIME_MASK = 0x100000
+VALUE_INDEX_SIZE = 0x2
+VALUE_TIME_SIZE = 0x2
+VALUE_STRING_MAX = 63
+
 PARAM_LIST         = 0
 PARAM_VALUES       = 1
 PARAM_INFO         = 2
@@ -105,36 +111,72 @@ def param_values_request(code):
 def subscribe_unpack(data):
     return  "\n".join(params_from_ask(data))
 
-def value_unpack(data):
+def _read_masked_index(index):
+    if index & INNER_TIME_MASK:
+        return (index ^ INNER_TIME_MASK, True)
+    return (index, False)
+
+def _struct_by_type_num(key):
+    stat_dict = {
+        PARAM_TYPE_SIGNAL : ('<b', 1),
+        PARAM_TYPE_FUNCTION : ('<f', 4),
+        PARAM_TYPE_FUNCTION_DOUBLE : ('<d', 8),
+        PARAM_TYPE_CODE : ('<H', 2),
+        PARAM_TYPE_CODE_LONG : ('<l', 4),
+        PARAM_TYPE_STRING : ('<c%ss', 0),
+        PARAM_TYPE_COMPLEX : ('<Hff', 10)
+    }
+    return stat_dict[key]
+
+def value_unpack(values_data, params):
+    telemetry_values = []
+    offset = 0
+    while offset < len(data):
+        value_data = values_data[offset : offset + VALUE_INDEX_SIZE]
+        offset += VALUE_INDEX_SIZE
+        value_data_index, has_local_time = _read_masked_index(unpack('<H', value_data))
+        local_time = 0
+        if has_local_time:
+            value_data = values_data[offset : offset + VALUE_TIME_SIZE]
+            offset += VALUE_TIME_SIZE
+            local_time = unpack('<H', value_data)
+        param = (filter(lambda p: p.index == value_data_index, params): or [None])[0]
+        if param is None: continue
+        struct_code, struct_size = _struct_by_type_num(param.param_type_num)
+        if struct_size:
+            value_data = values_data[offset : offset + struct_size]
+            offset += struct_size
+            if struct_size < 10:
+                pass
+            else:
+                # case of PARAM_TYPE_COMPLEX
+                pass
+        else:
+            # case of PARAM_TYPE_STRING
+            pass
     return data
 
 def param_values_responce(code, telemetry, append_inner_time = False):
+    DEFAULT_LOCAL_TIME = 1
     params_buff = ''
     for param_value in telemetry.params:
         if append_inner_time:
-            data_buff = pack('<HH', param_value.param.index & 0x100000, 1)
+            data_buff = pack('<HH', param_value.param.index & INNER_TIME_MASK, DEFAULT_LOCAL_TIME)
         else:
             data_buff = pack('<H', param_value.param.index)
-        if param_value.param.param_type_num == PARAM_TYPE_SIGNAL:
-            data_buff += pack('<b', param_value.value)
-        elif param_value.param.param_type_num == PARAM_TYPE_FUNCTION:
-            data_buff += pack('<f', param_value.value)
-        elif param_value.param.param_type_num == PARAM_TYPE_FUNCTION_DOUBLE:
-            data_buff += pack('<d', param_value.value)
-        elif param_value.param.param_type_num == PARAM_TYPE_CODE:
-            data_buff += pack('<H', param_value.value)
-        elif param_value.param.param_type_num == PARAM_TYPE_CODE_LONG:
-            data_buff += pack('<l', param_value.value)
+        struct_code = _struct_by_type_num(param_value.param.param_type_num)[0]
+        if param_value.param.param_type_num in [PARAM_TYPE_SIGNAL, PARAM_TYPE_FUNCTION, PARAM_TYPE_FUNCTION_DOUBLE, PARAM_TYPE_CODE, PARAM_TYPE_CODE_LONG, PARAM_TYPE_STRING, PARAM_TYPE_COMPLEX]:
+            data_buff += pack(struct_code, param_value.value)
         elif param_value.param.param_type_num == PARAM_TYPE_STRING:
-            val = value[:63]
+            val = value[:VALUE_STRING_MAX]
             str_len = len(val)
-            data_buff += pack('<c%ss' % str_len, str_len, val)
+            data_buff += pack(struct_code % str_len, str_len, val)
         elif param_value.param.param_type_num == PARAM_TYPE_COMPLEX:
-            data_buff += pack('<Hff', param_value.value, param_value.percent, param_value.physical)
+            data_buff += pack(struct_code, param_value.value, param_value.percent, param_value.physical)
         else: continue
         params_buff += data_buff
     time_buff = pack('<i', telemetry.time)
-    prefix_buff = pack(PARAM_HEAD_STRUCT, code, len(params_buff) + len(time_buff), PARAM_VALUES)
+    prefix_buff = pack(PARAM_HEAD_STRUCT, code, len(params_buff) + VALUES_TIME_SIZE, PARAM_VALUES)
     return prefix_buff + time_buff + params_buff
 
 def checkconnect_msg(code):

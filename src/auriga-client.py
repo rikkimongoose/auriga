@@ -13,6 +13,10 @@ def read_head(sock):
     print "Receiving %s bytes" % (pkg_size)
     return pkg_size
 
+def read_time(sock):
+    time_block = sock.recv(VALUES_TIME_SIZE)
+    return time_block is not None
+
 def client(cmd_buff, server, port, output_func = None, finite_responce = True):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect((server, port))
@@ -26,6 +30,7 @@ def client(cmd_buff, server, port, output_func = None, finite_responce = True):
             output_func(reply)
         else:
             while pkg_size:
+                if not read_time(sock): return
                 data = sock.recv(pkg_size)
                 if not data: break
                 output_func(data)
@@ -55,7 +60,7 @@ def main():
     client(delete_request, ARGS.server, ARGS.port, False)
     print "Receive param values"
     value_request = param_values_request(ARGS.code)
-    client(value_request, ARGS.server, ARGS.port, lambda x: output_func(value_unpack(x)), False)
+    client(value_request, ARGS.server, ARGS.port, lambda x: output_func(value_unpack(x, telemetry.params)), False)
 
 if __name__ == "__main__":
     main()
