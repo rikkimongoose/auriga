@@ -3,6 +3,8 @@ import os
 from struct import *
 from usi import *
 
+VER = "1.2"
+
 CODE_GVM_DRAW   = "GVM_DRAW70"
 CODE_SEA_LAUNCH = "SEA_LAUN53"
 
@@ -128,33 +130,39 @@ def _struct_by_type_num(key):
     }
     return stat_dict[key]
 
-def value_unpack(values_data, params):
-    telemetry_values = []
+def value_unpack(data, params):
+    telemetry_values_str = ""
+    telemetry_value_format = "%s\t= %s"
     offset = 0
     while offset < len(data):
-        value_data = values_data[offset : offset + VALUE_INDEX_SIZE]
+        value_data = data[offset : offset + VALUE_INDEX_SIZE]
+        if len(value_data) < VALUE_INDEX_SIZE: break
         offset += VALUE_INDEX_SIZE
-        value_data_index, has_local_time = _read_masked_index(unpack('<H', value_data))
+        value_data_index, has_local_time = _read_masked_index(unpack('<H', value_data)[0])
         local_time = 0
         if has_local_time:
-            value_data = values_data[offset : offset + VALUE_TIME_SIZE]
+            value_data = data[offset : offset + VALUE_TIME_SIZE]
             offset += VALUE_TIME_SIZE
             local_time = unpack('<H', value_data)
-        param = (filter(lambda p: p.index == value_data_index, params): or [None])[0]
-        if param is None: continue
-        struct_code, struct_size = _struct_by_type_num(param.param_type_num)
+        telemetry_param = (filter(lambda p: p.param.index == value_data_index, params) or [None])[0]
+        if telemetry_param is None: continue
+        struct_code, struct_size = _struct_by_type_num(telemetry_param.param.param_type_num)
         if struct_size:
-            value_data = values_data[offset : offset + struct_size]
+            value_data = data[offset : offset + struct_size]
             offset += struct_size
             if struct_size < 10:
-                pass
+                param_value_num = unpack(struct_code, value_data)[0]
+                param_value_str = telemetry_value_format % (telemetry_param.param.name, param_value_num)
             else:
-                # case of PARAM_TYPE_COMPLEX
-                pass
+                param_value_num, param_value_percent, param_value_physical = unpack(struct_code, value_data)
+                param_value_str = telemetry_value_format % (telemetry_param.param.name, "%s (%s%) %s" % (param_value_num, param_value_percent, param_value_physical))
         else:
-            # case of PARAM_TYPE_STRING
-            pass
-    return data
+            struct_size = unpack(struct_code, data[offset : offset + 1])
+            param_value_str = unpack('<%ss' % struct_size, data[offset + 1 : struct_size])
+            offset += struct_size + 1
+            param_value_str = telemetry_value_format % (telemetry_param.param.name, param_value_str)
+        telemetry_values_str += param_value_str + '\n'
+    return telemetry_values_str
 
 def param_values_responce(code, telemetry, append_inner_time = False):
     DEFAULT_LOCAL_TIME = 1

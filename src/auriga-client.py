@@ -4,7 +4,6 @@ from usi import *
 from usiserver import *
 
 ARGS = None
-VER = "1.0"
 
 def read_head(sock):
     head_data = sock.recv(PARAM_HEAD_SIZE)
@@ -60,7 +59,10 @@ def main():
     client(delete_request, ARGS.server, ARGS.port, False)
     print "Receive param values"
     value_request = param_values_request(ARGS.code)
-    client(value_request, ARGS.server, ARGS.port, lambda x: output_func(value_unpack(x, telemetry.params)), False)
+    try:
+        client(value_request, ARGS.server, ARGS.port, lambda x: output_func(value_unpack(x, telemetry.params)), False)
+    except KeyboardInterrupt:
+        print "Client exit"
 
 if __name__ == "__main__":
     main()

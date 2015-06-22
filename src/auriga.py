@@ -5,8 +5,6 @@ from time import strftime, localtime, sleep
 from usi import *
 from usiserver import *
 
-VER = "1.0"
-
 def timeprint(string):
     print "[%s] %s" % (strftime("%Y-%m-%d %H:%M:%S", localtime()), string)
 
@@ -39,8 +37,8 @@ class TCPHandle(SocketServer.BaseRequestHandler):
                 telemetries_len = len(self.server.usi_data.telemetries)
                 while self.server.user_data[user_host]['iter_index'] < telemetries_len:
                     try:
-                        timeprint('Sending telemetry #%s to %s' % (self.server.user_data[user_host]['iter_index'], user_host))
-                        self.request.send(param_values_responce(self.server.code, self.server.usi_data.telemetries[self.server.user_data[user_host]['iter_index']]))
+                        timeprint('Sending telemetry #%03d to %s' % (self.server.user_data[user_host]['iter_index'], user_host))
+                        self.request.send(param_values_responce(self.server.code, self.server.usi_data.telemetries[self.server.user_data[user_host]['iter_index']], self.server.is_inner_time))
                         sleep(timer_delay)
                     except Exception as ex:
                         timeprint('Communication breakdown with %s' % user_host)
@@ -71,7 +69,7 @@ class TCPHandle(SocketServer.BaseRequestHandler):
                 new_params = param_from_ask_index(data, self.server.usi_data.params)
                 map(lambda p : self.server.user_data[user_host]['params'].remove(p), new_params)
         elif pkg_type == PARAM_ERROR:
-            timeprint('An error occuured in client app at host %s' % user_host)
+            timeprint('An error occured in client app at host %s' % user_host)
             self.server.cancel_user_host(user_host)
             self.server.del_user_host(user_host)
             is_derived_close = True
@@ -88,8 +86,11 @@ class ThreadedTCPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
     def cancel_user_host(self, user_host):
         if user_host not in self.user_data: return
         if 'request' in self.user_data[user_host] and self.user_data[user_host]['request'] is not None:
-            self.user_data[user_host]['request'].send(disconnect_msg(self.user_data[user_host]['code']))
-            self.user_data[user_host]['request'].close()
+            try:
+                self.user_data[user_host]['request'].send(disconnect_msg(self.user_data[user_host]['code']))
+                self.user_data[user_host]['request'].close()
+            except Exception:
+                print "User %s is left. The disconnect message wasn't sent." % user_host
             self.user_data[user_host]['request'] = None
 
     def del_user_host(self, user_host):
@@ -136,13 +137,14 @@ def main():
     server.code = ARGS.code
     server.repeat = ARGS.repeat
     server.delay = ARGS.delay
+    server.is_inner_time = ARGS.time
     server.user_data = {}
 
     print "*  *"
     print "    *  Auriga USI Server %s" % VER
-    print "*      (c)Rikki Mongoose (http://github.com/rikkimongoose/auriga), 2015"
-    print "    *  Auriga application started on %s:%s" % (ARGS.server, ARGS.port)
-    print " *     Ctrl+C to shutdown server; call with --help for options"
+    print "*      (c)Rikki Mongoose (http://github.com/rikkimongoose/auriga), 2015."
+    print "    *  Auriga application started on %s:%s." % (ARGS.server, ARGS.port)
+    print " *     Ctrl+C to shutdown server; call with --help for options."
     try:
        server.serve_forever()
     except KeyboardInterrupt:

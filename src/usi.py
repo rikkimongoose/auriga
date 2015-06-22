@@ -63,14 +63,14 @@ class UsiServiceInfo:
 
     def __str__(self):
         return """### SERVICE INFO
-KEYWORD: %s
-TITLE: %s
-NUM: %s
-TEST SECTION: %s
-DRAWING NUM: %s
-FILE START: %f
-FILE FINISH: %f
-CREATION TIME: %s
+KEYWORD\t: %s
+TITLE\t: %s
+NUM\t: %s
+TEST SECTION\t: %s
+DRAWING NUM\t: %s
+FILE START\t: %f
+FILE FINISH\t: %f
+CREATION TIME\t: %s
 ===""" % (self.keyword, self.title, self.num, self.test_section, self.drawing_num, self.file_start, self.file_finish, self.creation_time)
 UsiServiceInfo.STRUCT_SIZE = 0x54
 
@@ -81,8 +81,8 @@ class UsiServiceInfoHead:
 
     def __str__(self):
         return """### SERVICE INFO (HEAD)
-CODE: %s
-DESCRIPTION: %s
+CODE\t: %s
+DESCRIPTION\t: %s
 ===""" % (self.code, self.description)
 UsiServiceInfoHead.HEAD_SIZE = 0x4
 UsiServiceInfoHead.HEAD_TAG = "HEAD"
@@ -97,11 +97,11 @@ class UsiSubHeader:
 
     def __str__(self):
         return """### SUBHEADER
-UNKNOWN BYTE: %x
-STAT: %s
-TIME SCALE: %s
-PARAMS COUNT: %s
-BUFF LENGTH: %s
+UNKNOWN BYTE\t: %x
+STAT\t: %s
+TIME SCALE\t: %s
+PARAMS COUNT\t: %s
+BUFF LENGTH\t: %s
 ===""" % (self.unknown_byte, self.stat, self.time_scale, self.params_count, self.buff_length)
 UsiSubHeader.STRUCT_SIZE = 0xA
 
@@ -121,15 +121,15 @@ class UsiParam:
 
     def __str__(self):
         return """### USI PARAM %s
-NAME: %s
-PARAM TYPE: %s
-IN ADDRESS: %s
-OUT ADDRESS: %s
-ADDITIONAL TYPE: %s
-ALGO NUM: %s
-BIT NUM: %s
-LOCAL NUM: %s
-DIMENSION: %s
+NAME\t: %s
+PARAM TYPE\t: %s
+IN ADDRESS\t: %s
+OUT ADDRESS\t: %s
+ADDITIONAL TYPE\t: %s
+ALGO NUM\t: %s
+BIT NUM\t: %s
+LOCAL NUM\t: %s
+DIMENSION\t: %s
 ===""" % (self.index, self.name, self.param_type, self.in_address, self.out_address, self.param_additional_type, self.algorithm_num, self.bit_num, self.local_num, self.dimension)
 UsiParam.STRUCT_SIZE = 0x20
 
@@ -142,19 +142,18 @@ class UslParam(UsiParam):
 
     def __str__(self):
         return """### USI PARAM %s
-NAME: %s
-PARAM TYPE: %s
-IN ADDRESS: %s
-OUT ADDRESS: %s
-ADDITIONAL TYPE: %s
-ALGO NUM: %s
-BIT NUM: %s
-LOCAL NUM: %s
-DIMENSION: %s
-DESCRIPTION: %s
-RESERVED: %s
+NAME\t: %s
+PARAM TYPE\t: %s
+IN ADDRESS\t: %s
+OUT ADDRESS\t: %s
+ADDITIONAL TYPE\t: %s
+ALGO NUM\t: %s
+BIT NUM\t: %s
+LOCAL NUM\t: %s
+DIMENSION\t: %s
+DESCRIPTION\t: %s
+RESERVED\t: %s
 ===""" % (self.index, self.name, self.param_type, self.in_address, self.out_address, self.param_additional_type, self.algorithm_num, self.bit_num, self.local_num, self.dimension, self.description, self.reserved)
-UsiParam.STRUCT_SIZE = 0x20
 
 UslParam.STRUCT_SIZE = 0x100
 
@@ -167,9 +166,9 @@ class UsiTelemetry:
 
     def __str__(self):
         as_str = """### TELEMETRY
-TIME: %.3f sec
-BUFF LENGTH: %s
-FILE POS: %x
+TIME\t: %.3f sec
+BUFF LENGTH\t: %s
+FILE POS\t: %x
 ===""" % (self.time, self.buff_length, self.file_pos)
         if(len(self.params)): as_str += "\n"
         for param in self.params: as_str += str(param) + "\n"
@@ -296,7 +295,7 @@ class UsiDataLoader:
             if size_for_param == 2: value = unpack('<H', subchunk)[0]
             elif size_for_param == 4: value = unpack('<L', subchunk)[0]
             elif size_for_param == 8: value = unpack('<Q', subchunk)[0]
-            else: sys.stderr.write("Unknown type of param: %s" % param.param_type)
+            else: sys.stderr.write("Unknown type of param\t: %s" % param.param_type)
             if param.param_type_num == PARAM_TYPE_SIGNAL:
                 if 1 << param.bit_num & value: value = 1
                 else: value = 0
