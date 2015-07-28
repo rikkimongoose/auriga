@@ -48,7 +48,7 @@ class TCPHandle(SocketServer.BaseRequestHandler):
                         self.server.user_data[user_host]['iter_index'] = 0
                 is_derived_close = True
         elif pkg_type == PARAM_INFO:
-            #not implemented. accissuble only in db.
+            #not implemented. accessible only in db.
             pass
         elif pkg_type == PARAM_CHECKCONNECT:
             timeprint("Connection check request")
@@ -66,8 +66,11 @@ class TCPHandle(SocketServer.BaseRequestHandler):
             timeprint("Request for deleting subscriptions")
             if pkg_size and user_host in self.server.user_data:
                 data = self.request.recv(pkg_size)
-                new_params = params_from_ask_index(data, self.server.usi_data.params)
-                map(lambda p : self.server.user_data[user_host]['params'].remove(p), new_params)
+                del_params = params_from_ask_index(data, self.server.usi_data.params)
+                params_container = self.server.user_data[user_host]['params']
+                for del_param in del_params:
+                    if del_param in params_container:
+                        params_container.remove(del_param)
         elif pkg_type == PARAM_ERROR:
             timeprint('An error occured in client app at host %s' % user_host)
             self.server.cancel_user_host(user_host)

@@ -60,9 +60,8 @@ def params_from_ask_index(ask_params_data, params):
     while offset < len(ask_params_data):
         ask_param_data = ask_params_data[offset : offset + ASK_PARAM_INDEX_SIZE]
         index = unpack('<H', ask_param_data)[0]
-        param = filter(lambda p: p.index == index, params)
-        if len(param):
-            param = param[0]
+        param = (filter(lambda p: p.index == index, params) or [None])[0]
+        if param:
             param_titles.append(UsiParam(param.name, param.index, param.param_type_num))
         offset += ASK_PARAM_INDEX_SIZE
     return param_titles
@@ -182,7 +181,7 @@ def param_values_responce(code, telemetry, append_inner_time = False):
             data_buff = pack('<HH', param_value.param.index & INNER_TIME_MASK, DEFAULT_LOCAL_TIME)
         else:
             data_buff = pack('<H', param_value.param.index)
-        struct_code = _struct_by_type_num(param_value.param.param_type_num)[0]
+        struct_code, struct_size = _struct_by_type_num(param_value.param.param_type_num)
         if param_value.param.param_type_num in [PARAM_TYPE_SIGNAL, PARAM_TYPE_FUNCTION, PARAM_TYPE_FUNCTION_DOUBLE, PARAM_TYPE_CODE, PARAM_TYPE_CODE_LONG, PARAM_TYPE_STRING, PARAM_TYPE_COMPLEX]:
             data_buff += pack(struct_code, param_value.value)
         elif param_value.param.param_type_num == PARAM_TYPE_STRING:
