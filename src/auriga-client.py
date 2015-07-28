@@ -52,8 +52,9 @@ def main():
     telemetry = usi_data.telemetries[1]
     output_func = lambda x : sys.stdout.write(str(x) + '\n')
     print "Subscribe with params"
-    subscribe_request = param_list_request(ARGS.code, [param.param for param in telemetry.params])
-    client(subscribe_request, ARGS.server, ARGS.port, lambda x: output_func(subscribe_unpack(x)))
+    params_used = [p.param for p in telemetry.params]
+    subscribe_request = param_list_request(ARGS.code, params_used)
+    client(subscribe_request, ARGS.server, ARGS.port, lambda x: output_func(subscribe_unpack(x, params_used)))
     print "Delete param"
     delete_request = param_delete_request(ARGS.code, [telemetry.params[0].param.index])
     client(delete_request, ARGS.server, ARGS.port, False)

@@ -27,6 +27,7 @@ PARAM_DISCONNECT   = 102
 PACK_HEAD_SIZE = 0xE
 
 ASK_PARAM_STRUCT = '<Hb32s'
+ASK_PARAM_STRUCT_INDEX = '<H'
 ASK_PARAM_SIZE = 0x23
 ASK_PARAM_INDEX_SIZE = 0x2
 
@@ -50,22 +51,32 @@ def unpack_head(data):
 def param_to_ask(param):
     return pack(ASK_PARAM_STRUCT, param.index, param.param_type_num, param.name[:32])
 
-def param_from_ask_index(ask_params_data, params):
+def param_to_ask_index(param):
+    return pack(ASK_PARAM_STRUCT_INDEX, param.index)
+
+def params_from_ask_index(ask_params_data, params):
     param_titles = []
     offset = 0
     while offset < len(ask_params_data):
         ask_param_data = ask_params_data[offset : offset + ASK_PARAM_INDEX_SIZE]
-        index = unpack('<H', ask_param_data)
-        if filter(lambda p: p.index == index, params):
-            param_titles.append(UsiParam(name, index, param_type_num))
+        index = unpack('<H', ask_param_data)[0]
+        param = filter(lambda p: p.index == index, params)
+        if len(param):
+            param = param[0]
+            param_titles.append(UsiParam(param.name, param.index, param.param_type_num))
         offset += ASK_PARAM_INDEX_SIZE
     return param_titles
 
 def params_from_ask(ask_params_data, params = None):
     param_titles = []
     offset = 0
+    print "Ask params received len: %s" % len(ask_params_data)
     while offset < len(ask_params_data):
         ask_param_data = ask_params_data[offset : offset + ASK_PARAM_SIZE]
+        if len(ask_param_data) != ASK_PARAM_SIZE:
+            print "Wrong ask param data (%s bytes)" % len(ask_param_data)
+            print ask_param_data
+            break
         index, param_type_num, name = unpack(ASK_PARAM_STRUCT, ask_param_data)
         name = strip_c_str(name)
         if params is None:
@@ -86,10 +97,10 @@ def param_list_pack(code, params, lambda_param_convert, param_cmd):
     return prefix_buff + params_buff
 
 def param_list_request(code, params):
-    return param_list_pack(code, params, lambda param: param_to_ask(param),  PARAM_LIST)
+    return param_list_pack(code, params, lambda param: param_to_ask(param), PARAM_LIST)
 
 def param_list_responce(code, params):
-    return param_list_pack(code, params, lambda param: param_to_ask(param), PARAM_LIST)
+    return param_list_pack(code, params, lambda param: param_to_ask_index(param), PARAM_LIST)
 
 def param_add_request(code, params):
     return param_list_pack(code, params, lambda param: param_to_ask(param), PARAM_ADD)
@@ -109,8 +120,8 @@ def param_info_responce(code, param_infos):
 def param_values_request(code):
     return pack(PARAM_HEAD_STRUCT, code, 0, PARAM_VALUES)
 
-def subscribe_unpack(data):
-    return  "\n".join(params_from_ask(data))
+def subscribe_unpack(data, params):
+    return  "\n".join([p.name for p in params_from_ask_index(data, params)])
 
 def _read_masked_index(index):
     if index & INNER_TIME_MASK:

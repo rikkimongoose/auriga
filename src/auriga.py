@@ -24,10 +24,10 @@ class TCPHandle(SocketServer.BaseRequestHandler):
                 timeprint("Subscribe request")
                 new_params = params_from_ask(data, self.server.usi_data.params)
                 self.server.user_data[user_host] = { 'params' : set(new_params), 'code' : self.server.code, 'iter_index' : 0 }
-                self.request.send(param_list_request(self.server.code, new_params))
+                self.request.send(param_list_responce(self.server.code, new_params))
         elif pkg_type == PARAM_VALUES:
             if user_host not in self.server.user_data:
-                timeprint('Attempt to get values from unsubsribed host %s' % user_host)
+                timeprint('Attempt to get values from unsubscribed host %s' % user_host)
                 self.do_error()
             else:
                 timeprint('Request for values from %s' % user_host)
@@ -66,7 +66,7 @@ class TCPHandle(SocketServer.BaseRequestHandler):
             timeprint("Request for deleting subscriptions")
             if pkg_size and user_host in self.server.user_data:
                 data = self.request.recv(pkg_size)
-                new_params = param_from_ask_index(data, self.server.usi_data.params)
+                new_params = params_from_ask_index(data, self.server.usi_data.params)
                 map(lambda p : self.server.user_data[user_host]['params'].remove(p), new_params)
         elif pkg_type == PARAM_ERROR:
             timeprint('An error occured in client app at host %s' % user_host)
