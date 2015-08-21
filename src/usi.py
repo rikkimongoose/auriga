@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from struct import *
-import os
+import os, sys
 
 SERVICE_INFO, SERVICE_INFO_HEAD = 1, 2
 FILETYPE_USI, FILETYPE_USL = 1, 2
