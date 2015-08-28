@@ -293,8 +293,8 @@ class UsiDataLoader:
             subchunk = chunk[param.out_address : param.out_address + size_for_param]
             value = 0
             if size_for_param == 2: value = unpack('<H', subchunk)[0]
-            elif size_for_param == 4: value = unpack('<L', subchunk)[0]
-            elif size_for_param == 8: value = unpack('<Q', subchunk)[0]
+            elif size_for_param == 4: value = unpack('<f', subchunk)[0]
+            elif size_for_param == 8: value = unpack('<d', subchunk)[0]
             else: sys.stderr.write("Unknown type of param\t: %s" % param.param_type)
             if param.param_type_num == PARAM_TYPE_SIGNAL:
                 if 1 << param.bit_num & value: value = 1
