@@ -121,9 +121,14 @@ def main():
     parser.add_argument('-d', '--delay', type=int, default=1000, help='delay of timer in msec')
     parser.add_argument('-c', '--code', type=str, default=CODE_GVM_DRAW, help='USI server code')
     parser.add_argument('usifile', nargs='?', type=argparse.FileType('rb'), default=sys.stdin, help='USI/USL file')
-    ARGS = parser.parse_args()
+    try:
+        ARGS = parser.parse_args()
+    except Exception, e:
+        sys.stderr.write("Unable to load file. Exception: %s" % e)
+        exit(1)
 
     usi_loader = UsiDataLoader(ARGS.usifile)
+
     output_only_mode = is_output_only(ARGS)
     usi_loader.debug_output = ARGS.output
     usi_data = usi_loader.do_load()
