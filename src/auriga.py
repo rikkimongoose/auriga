@@ -106,6 +106,9 @@ class ThreadedTCPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
 def callback_test_timer(string):
     print string
 
+def is_output_only(args):
+    return args.output_params or args.output
+
 def main():
     parser = argparse.ArgumentParser(usage='%(prog)s [options]')
     parser.add_argument('-V', '--version', action='version', version='auriga %s' % VER)
@@ -120,16 +123,14 @@ def main():
     parser.add_argument('usifile', nargs='?', type=argparse.FileType('rb'), default=sys.stdin, help='USI/USL file')
     ARGS = parser.parse_args()
 
-    usi_loader = UsiDataLoader(None)
-    usi_loader.set_file(ARGS.usifile)
+    usi_loader = UsiDataLoader(ARGS.usifile)
+    output_only_mode = is_output_only(ARGS)
+    usi_loader.debug_output = ARGS.output
     usi_data = usi_loader.do_load()
-
-    if ARGS.output_params:
-        for param in usi_data.params: print ("%s %s\n" % (param.name, param.param_type))
-        print ""
-        return
-    if ARGS.output:
-        print usi_data
+    if output_only_mode:
+        if ARGS.output_params:
+            for param in usi_data.params: print ("%s %s\n" % (param.name, param.param_type))
+            print ""
         return
     try:
         server = ThreadedTCPServer((ARGS.server, ARGS.port), TCPHandle)

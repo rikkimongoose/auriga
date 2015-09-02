@@ -7,16 +7,19 @@ import os, sys
 SERVICE_INFO, SERVICE_INFO_HEAD = 1, 2
 FILETYPE_USI, FILETYPE_USL = 1, 2
 
+TYPE_ERROR_CODE = -1
+
 PARAM_EMPTY        = 0x7FFF #=32767
 PARAM_EMPTY_SIGNAL = 0x2    #=b10
 PARAM_EMPTY_STR    = ''
 
+PARSE_STAT_ERROR            = TYPE_ERROR_CODE
 PARSE_STAT_TIED             = 0x1
 PARSE_STAT_DECOMMUNICATED   = 0x2
 PARSE_STAT_PHYSICAL         = 0x4
 PARSE_STAT_COMPRESSED       = 0x64
 
-PARAM_TYPE_ERROR            =-1
+PARAM_TYPE_ERROR            = TYPE_ERROR_CODE
 PARAM_TYPE_SIGNAL           = 0
 PARAM_TYPE_FUNCTION         = 1
 PARAM_TYPE_FUNCTION_DOUBLE  = 4
@@ -25,6 +28,7 @@ PARAM_TYPE_CODE_LONG        = 3
 PARAM_TYPE_STRING           = 5
 PARAM_TYPE_COMPLEX          = 6
 
+PARAM_ADD_TYPE_ERROR          = TYPE_ERROR_CODE
 PARAM_ADD_TYPE_SIGNAL         = 0
 PARAM_ADD_TYPE_ANALOG         = 1
 PARAM_ADD_TYPE_DIGIT          = 2
@@ -189,6 +193,9 @@ class UsiTelemetryParam:
         return "%s (%s) = %s" % (self.param.name, self.size, self.value)
 
 class UsiDataLoader:
+    def out(self, obj):
+        if self.debug_output: print obj
+
     def _get_service_info_type(self):
         service_info_type = SERVICE_INFO
         chunk = self.file.read(UsiServiceInfoHead.HEAD_SIZE)
@@ -220,6 +227,7 @@ class UsiDataLoader:
             code, description = unpack('<B79s', chunk)
             service_info.code = code
             service_info.description = strip_c_str(description)
+        self.out(service_info)
         return service_info
 
     def _read_subheader_data(self):
@@ -231,6 +239,7 @@ class UsiDataLoader:
         sub_header.time_scale = time_scale
         sub_header.params_count = params_count
         sub_header.buff_length = buff_length
+        self.out(sub_header)
         return sub_header
 
     def _read_param_usi(self, index):
@@ -250,6 +259,7 @@ class UsiDataLoader:
         param_data.bit_num = bit_num
         param_data.local_num = local_num
         param_data.dimension = strip_c_str(dimension)
+        self.out(param_data)
         return param_data
 
     def _read_param_usl(self, index):
@@ -272,6 +282,7 @@ class UsiDataLoader:
         
         param_data.description = strip_c_str(description)
         param_data.reserved = strip_c_str(reserv)
+        self.out(param_data)
         return param_data
 
     def _read_telemetry(self):
@@ -306,6 +317,7 @@ class UsiDataLoader:
                 usi_telemetry_param.size = size_for_param
                 usi_telemetry_param.value = value
                 telemetry_data.params.append(usi_telemetry_param)
+        self.out(telemetry_data)
         return telemetry_data
 
     def do_load_head(self):
@@ -353,6 +365,8 @@ class UsiDataLoader:
             usi_telemetry_param.value = value
             telemetry_data.params.append(usi_telemetry_param)
         self.usi_info.telemetries.append(telemetry_data)
+        self.out(telemetry_data)
+        return telemetry_data
 
     def do_load_opened(self):
         self.do_load_head()
@@ -372,7 +386,10 @@ class UsiDataLoader:
 
     def set_file(self, file_stream):
         self.file = file_stream
-        self.filetype = self.usi_file_type_by_name(file_stream.name)
+        if file_stream is None:
+            self.filetype = self.usi_file_type_by_name(file_stream.name)
+        else:
+            self.filetype = FILETYPE_USI
 
     def usi_file_type_by_name(self, filename):
         if(filename.strip().lower().endswith('usl')):
@@ -383,42 +400,47 @@ class UsiDataLoader:
     def _from_oem_str(self, oem_str):
         return oem_str#.decode("cp866").encode()
 
-    def _parse_stat(self, stat):
-        stat_dict = {
-            "tied" : PARSE_STAT_TIED,
-            "decommunicated" : PARSE_STAT_DECOMMUNICATED,
-            "physical" : PARSE_STAT_PHYSICAL,
-            #"RESERVED" : 0x8,
-            #"RESERVED" : 0x16,
-            #"RESERVED" : 0x32,
-            "compressed" : PARSE_STAT_COMPRESSED
-        }
-        return [code for code in stat_dict if stat_dict[code] & stat]
+    def _parse_code(self, codeType, code, dictCode):
+        if code in dictCode:
+            return dictCode[code]
+        sys.stderr.write("Unknown %s code: %s\n" % (codeType, code))
+        return dictCode[TYPE_ERROR_CODE]
 
-    def _get_param_type_title(self, param_value):
-        stat_dict = {
-            "Error" : PARAM_TYPE_ERROR,
-            "Signal" : PARAM_TYPE_SIGNAL,
-            "Function" : PARAM_TYPE_FUNCTION,
-            "Code" : PARAM_TYPE_CODE,
-            "Code (Long)" : PARAM_TYPE_CODE_LONG,
-            "Function (Double)" : PARAM_TYPE_FUNCTION_DOUBLE,
-            "String" : PARAM_TYPE_STRING,
-            "Complex" : PARAM_TYPE_COMPLEX
-        }
-        return [code for code in stat_dict if stat_dict[code] == param_value][0]
+    def _parse_stat(self, code):
+        return self._parse_code("USI file stat" , code, {
+                PARSE_STAT_ERROR : "ERROR",
+                PARSE_STAT_TIED : "tied",
+                PARSE_STAT_DECOMMUNICATED : "decommunicated",
+                PARSE_STAT_PHYSICAL : "physical",
+                #0x8 : RESERVED,
+                #0x16 : RESERVED,
+                #0x32 : RESERVED,
+                PARSE_STAT_COMPRESSED : "compressed"
+            })
 
-    def _get_param_additional_type_title(self, param_value):
-        stat_dict = {
-            "Signal" : PARAM_ADD_TYPE_SIGNAL,
-            "Analog" : PARAM_ADD_TYPE_ANALOG,
-            "Digit" : PARAM_ADD_TYPE_DIGIT,
-            "SIT" : PARAM_ADD_TYPE_SIT,
-            "CIM" : PARAM_ADD_TYPE_CIM,
-            "DESH" : PARAM_ADD_TYPE_DESH,
-            "SignalControl" : PARAM_ADD_TYPE_SIGNAL_CONTROL
-        }
-        return [code for code in stat_dict if stat_dict[code] == param_value][0]
+    def _get_param_type_title(self, code):
+        return self._parse_code("param type", code, {
+                    PARAM_TYPE_ERROR : "ERROR",
+                    PARAM_TYPE_SIGNAL : "Signal",
+                    PARAM_TYPE_FUNCTION : "Function",
+                    PARAM_TYPE_CODE : "Code",
+                    PARAM_TYPE_CODE_LONG : "Code (Long)",
+                    PARAM_TYPE_FUNCTION_DOUBLE : "Function (Double)",
+                    PARAM_TYPE_STRING : "String",
+                    PARAM_TYPE_COMPLEX : "Complex"
+                })
+
+    def _get_param_additional_type_title(self, code):
+        return self._parse_code("additional param type", code, {
+                    PARAM_ADD_TYPE_ERROR : "ERROR",
+                    PARAM_ADD_TYPE_SIGNAL : "Signal",
+                    PARAM_ADD_TYPE_ANALOG : "Analog",
+                    PARAM_ADD_TYPE_DIGIT : "Digit",
+                    PARAM_ADD_TYPE_SIT : "SIT",
+                    PARAM_ADD_TYPE_CIM : "CIM",
+                    PARAM_ADD_TYPE_DESH : "DESH",
+                    PARAM_ADD_TYPE_SIGNAL_CONTROL : "SignalControl"
+                })
 
     def _get_telemetry_size_for_param(self, param_code):
         if param_code in ["Signal", "Code"]: return 2
@@ -429,16 +451,15 @@ class UsiDataLoader:
     def _get_telemetry_time(self, telemetry_time):
         return (telemetry_time * 1.0) / self.usi_info.sub_header.time_scale
 
-    def __init__(self, filename):
-        self.filename = filename
-        self.filetype = FILETYPE_USI
+    def __init__(self, file_stream):
         self.zero_telemetry = True
         self.file = None
         self.usi_info = None
+        self.debug_output = False
+        self.set_file(file_stream)
 
     def _open(self):
-        self.filetype = self.usi_file_type_by_name(self.filename)
-        self.file = open(self.filename, 'rb')
+        if self.file is None: self.file = open(self.filename, 'rb')
 
     def _close(self):
         if self.file is not None: self.file.close()
