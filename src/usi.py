@@ -102,7 +102,7 @@ class UsiSubHeader:
     def __str__(self):
         return """### SUBHEADER
 UNKNOWN BYTE\t: %x
-STAT\t: %s
+STAT\t\t: %s
 TIME SCALE\t: %s
 PARAMS COUNT\t: %s
 BUFF LENGTH\t: %s
@@ -131,7 +131,7 @@ IN ADDRESS\t: %s
 OUT ADDRESS\t: %s
 ADDITIONAL TYPE\t: %s
 ALGO NUM\t: %s
-BIT NUM\t: %s
+BIT NUM\t\t: %s
 LOCAL NUM\t: %s
 DIMENSION\t: %s
 ===""" % (self.index, self.name, self.param_type, self.in_address, self.out_address, self.param_additional_type, self.algorithm_num, self.bit_num, self.local_num, self.dimension)
@@ -170,7 +170,7 @@ class UsiTelemetry:
 
     def __str__(self):
         as_str = """### TELEMETRY
-TIME\t: %.3f sec
+TIME\t\t: %.3f sec
 BUFF LENGTH\t: %s
 FILE POS\t: %x
 ===""" % (self.time, self.buff_length, self.file_pos)
@@ -306,7 +306,7 @@ class UsiDataLoader:
             if size_for_param == 2: value = unpack('<H', subchunk)[0]
             elif size_for_param == 4: value = unpack('<f', subchunk)[0]
             elif size_for_param == 8: value = unpack('<d', subchunk)[0]
-            else: sys.stderr.write("Unknown type of param\t: %s" % param.param_type)
+            else: sys.stderr.write("Unknown type of param\t: %s\n" % param.param_type)
             if param.param_type_num == PARAM_TYPE_SIGNAL:
                 if 1 << param.bit_num & value: value = 1
                 else: value = 0
@@ -404,7 +404,7 @@ class UsiDataLoader:
         if code in dictCode:
             return dictCode[code]
         sys.stderr.write("Unknown %s code: %s\n" % (codeType, code))
-        return dictCode[TYPE_ERROR_CODE]
+        return "ERROR (code %s)" % code
 
     def _parse_stat(self, code):
         return self._parse_code("USI file stat" , code, {
