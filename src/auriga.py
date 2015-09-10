@@ -109,7 +109,7 @@ def callback_test_timer(string):
 def is_output_only(args):
     return args.output_params or args.output
 
-def main():
+def load_arg_parser():
     parser = argparse.ArgumentParser(usage='%(prog)s [options]')
     parser.add_argument('-V', '--version', action='version', version='auriga %s' % VER)
     parser.add_argument('-o', '--output', action='store_true', default=False, help='just output usi file, without starting server')
@@ -121,6 +121,19 @@ def main():
     parser.add_argument('-d', '--delay', type=int, default=1000, help='delay of timer in msec')
     parser.add_argument('-c', '--code', type=str, default=CODE_GVM_DRAW, help='USI server code')
     parser.add_argument('usifile', nargs='?', type=argparse.FileType('rb'), default=sys.stdin, help='USI/USL file')
+
+    return parser
+
+def draw_logo(ARGS):
+    print "*  *"
+    print "    *  Auriga USI Server %s" % VER
+    print "*      (c)Rikki Mongoose (http://github.com/rikkimongoose/auriga), 2015."
+    print "    *  Auriga application started on %s:%s." % (ARGS.server, ARGS.port)
+    print " *     Ctrl+C to shutdown server; call with --help for options."
+
+def main():
+    parser = load_arg_parser()
+
     try:
         ARGS = parser.parse_args()
     except Exception, e:
@@ -149,11 +162,8 @@ def main():
     server.is_inner_time = ARGS.time
     server.user_data = {}
 
-    print "*  *"
-    print "    *  Auriga USI Server %s" % VER
-    print "*      (c)Rikki Mongoose (http://github.com/rikkimongoose/auriga), 2015."
-    print "    *  Auriga application started on %s:%s." % (ARGS.server, ARGS.port)
-    print " *     Ctrl+C to shutdown server; call with --help for options."
+    draw_logo(ARGS)
+
     try:
        server.serve_forever()
     except KeyboardInterrupt:
